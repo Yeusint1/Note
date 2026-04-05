@@ -98,20 +98,17 @@ func verifyHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "key is empty"})
 		return
 	}
-	authMu.RLock()
-	expire, ok := authKey[code]
-	authMu.RUnlock()
+	ok, msg := checkKey(code)
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "key not found"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": msg})
 		return
 	}
-	if expire < time.Now().Unix() {
-		authMu.Lock()
-		delete(authKey, code)
-		authMu.Unlock()
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "key expired"})
+	ok, msg = checkOAKey(code)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": msg})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"code": 200, "msg": "ok"})
 }
 
@@ -126,6 +123,13 @@ func memoGetHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
 		return
 	}
+	ok, msg = checkOAKey(key)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
+		return
+	}
+	// ↑验证阶段
+
 	idStr := c.Query("id")
 	if idStr != "" {
 		id, err := strconv.Atoi(idStr)
@@ -173,6 +177,12 @@ func memoDeleteHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
 		return
 	}
+	ok, msg = checkOAKey(key)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -200,6 +210,12 @@ func memoPostHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
 		return
 	}
+	ok, msg = checkOAKey(key)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
+		return
+	}
+
 	title := c.PostForm("title")
 	text := c.PostForm("text")
 	// handle files (may be multiple)
@@ -276,7 +292,6 @@ func memoPostHandler(c *gin.Context) {
 		}
 
 	}
-
 }
 
 func downloadHandler(c *gin.Context) {
@@ -290,6 +305,12 @@ func downloadHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
 		return
 	}
+	ok, msg = checkOAKey(key)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
+		return
+	}
+
 	id := c.Query("id")
 	mid := c.Query("mid")
 	if id == "" || mid == "" || !isDigits(mid) {
@@ -526,6 +547,7 @@ func UserInfoHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": msg})
 		return
 	}
+
 	oauthMu.RLock()
 	c.JSON(200, gin.H{
 		"code": 0,

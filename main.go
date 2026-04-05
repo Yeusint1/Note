@@ -142,8 +142,10 @@ func main() {
 		api.DELETE("/memo/:id", memoDeleteHandler)
 		api.GET("/download", downloadHandler)
 		api.POST("/sync", syncHandler)
-
+		api.GET("/getUser", UserInfoHandler)
 	}
+
+	r.GET("/oauth/authorize", OAuthCallbackHandler)
 
 	r.NoRoute(func(ctx *gin.Context) {
 		if ctx.Request.Header.Get("Accept") == "application/json" {
